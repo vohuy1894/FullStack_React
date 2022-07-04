@@ -1,74 +1,122 @@
 require("dotenv").config();
 const express = require("express");
-const app = express();
+const PORT = process.env.PORT || 8080;
+const morgan = require("morgan");
+const db = require("./database/db");
 const cors = require("cors");
-const pool = require("./db");
 
-//middleware
-app.use(cors());
+const app = express();
+
+app.use(morgan("dev"));
 app.use(express.json());
+app.use(cors());
 
-//routes
-app.post("/register", async(req, res) => {
+app
+  .route("/api/v1/restaurants")
+  .get(async (req, res, next) => {
     try {
-        console.log(req.body);
-    } catch (err) {
-        console.error(err.message);
+      const results = await db.query("SELECT * FROM restaurants");
+    //   const results = await db.query(
+    //     "select * from restaurants LEFT JOIN (SELECT restaurant_id, count(*), trunc(AVG(rating)) AS average_rating FROM reviews GROUP BY restaurant_id) reviews on restaurants.id = reviews.restaurant_id"
+    //   );
+      res.status(200).json({
+        status: "success",
+        results: results.rows.length,
+        data: results.rows,
+      });
+    } catch (error) {
+      console.log(error);
     }
-})
-
-app.post("/todos", async(req, res) => {
+  })
+  .post(async (req, res, next) => {
+    const { name, location, price_range } = req.body;
     try {
-        const {description} = req.body;
-        const newTodo = await pool.query("INSERT INTO todo (description) VALUES($1) RETURNING *", [description]);
-        res.json(newTodo.rows[0]);
-    } catch (err) {
-        console.error(err.message);
+      const results = await db.query(
+        "INSERT INTO restaurants(name, location, price_range) VALUES($1, $2, $3) returning *",
+        [name, location, price_range]
+      );
+      res.status(200).json({
+        status: "success",
+        data: results.rows[0],
+      });
+    } catch (error) {
+      console.log(error);
     }
-})
+  });
 
-app.get("/todos", async(req, res) => {
+app
+  .route("/api/v1/restaurants/:id")
+  .get(async (req, res, next) => {
     try {
-        const allTodos = await pool.query("SELECT * FROM todo");
-        res.json(allTodos.rows);
-    } catch (err) {
-        console.error(err.message);
-    }
-})
+      const { id } = req.params;
 
-app.get("/todos/:id", async(req, res) =>{
+      const results = await db.query(
+        "select * from restaurants LEFT JOIN (SELECT restaurant_id, count(*), trunc(AVG(rating)) AS average_rating FROM reviews GROUP BY restaurant_id) reviews on restaurants.id = reviews.restaurant_id WHERE id = $1",
+        [id]
+      );
+      const reviews = await db.query(
+        "SELECT * FROM reviews WHERE restaurant_id = $1",
+        [id]
+      );
+      res.status(200).json({
+        status: "success",
+        data: {
+          restaurant: results.rows[0],
+          reviews: reviews.rows,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  })
+  .put(async (req, res, next) => {
+    const { id } = req.params;
+    const { name, location, price_range } = req.body;
     try {
-        const { id } = req.params;
-        const todo = await pool.query("SELECT * FROM todo WHERE todo_id = $1", [id]);
-        res.json(todo.rows[0]);
-    } catch (err) {
-        console.log(err.message);
+      const results = await db.query(
+        "UPDATE restaurants SET name = $1, location = $2, price_range = $3 WHERE id = $4 returning *",
+        [name, location, price_range, id]
+      );
+      res.status(200).json({
+        status: "success",
+        data: results.rows[0],
+      });
+    } catch (error) {
+      console.log(error);
     }
-})
-
-//update todo
-app.put("/todos/:id", async(req, res)=> {
+  })
+  .delete(async (req, res, next) => {
     try {
-        const {id} = req.params;
-        const {description} = req.body;
-        const updateTodo = await pool.query("UPDATE todo SET description = $1 WHERE todo_id = $2",[description, id]);
-        res.json("Todo was updated");
-    } catch (err) {
-        console.log(err.message);
+      const { id } = req.params;
+      const results = await db.query(
+        "DELETE FROM restaurants WHERE id = $1 returning id",
+        [id]
+      );
+      res.status(201).json({
+        status: "success",
+        data: results.rows[0],
+      });
+    } catch (error) {
+      console.log(error);
     }
-})
+  });
 
-//delete todo
-app.delete("/todos/:id", async(req, res) =>{
-    try {
-        const {id}  = req.params;
-        const deleteTodo = await pool.query("DELETE FROM todo WHERE todo_id = $1", [id]);
-        res.json("Todo was deleted");
-    } catch (err) {
-        console.log(err.message);
-    }
-})
+app.post(`/api/v1/restaurants/:id/addReview`, async (req, res) => {
+  const { name, rating, review } = req.body;
+  const { id } = req.params;
+  try {
+    const results = await db.query(
+      "INSERT INTO reviews(restaurant_id, name, review, rating) VALUES($1, $2, $3, $4) returning *",
+      [id, name, review, rating]
+    );
+    res.status(200).json({
+      status: "success",
+      data: results.rows[0],
+    });
+  } catch (error) {
+    res.send(error);
+    console.log(error);
+  }
+});
 
-app.listen(5000, () =>{
-    console.log("Server has started on port 5000")
-})
+app.listen(PORT, () => console.log("Magic happening on PORT", +PORT));

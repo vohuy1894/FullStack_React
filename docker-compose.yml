@@ -1,0 +1,19 @@
+version: '3'
+services:
+  postgres:
+    image: 'postgres:latest'
+  api:
+    build:
+      dockerfile: Dockerfile.env
+      context: './server'
+    volumes:
+      - /app/node_modules
+      - ./server:/app
+  client:
+    stdin_open: true
+    build: 
+      dockerfile: Dockerfile.env
+      context: './client'
+    volumes:
+        - /app/node_modules
+        - ./client:/app

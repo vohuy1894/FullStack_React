@@ -1,10 +1,58 @@
-import React from 'react';
+import { Button, HelperText, Input, Label } from "@windmill/react-ui";
+import React, { useState } from "react";
 import ReactDOM from 'react-dom';
 import GoogleLogin from 'react-google-login';
 
 const Login = () => {
+    const { isLoggedIn, setUserState } = useUser();
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [redirectToReferrer, setRedirectToReferrer] = useState(false);
+    const { state } = useLocation();
+    const { register, handleSubmit, errors } = useForm();
+  
+    const handleGoogleLogin = async (googleData) => {
+      try {
+        const data = await authService.googleLogin(googleData.tokenId);
+        toast.success("Login successful 🔓");
+        setTimeout(() => {
+          setUserState(data);
+          setRedirectToReferrer(true);
+          setIsLoading(false);
+        }, 1500);
+      } catch (error) {
+        setIsLoading(false);
+      }
+    };
+  
+    const onSubmit = async (data) => {
+      const { email, password } = data;
+  
+      try {
+        setError("");
+        setIsLoading(true);
+        const data = await authService.login(email, password);
+        toast.success("Login successful 🔓");
+  
+        setTimeout(() => {
+          setUserState(data);
+          setRedirectToReferrer(true);
+          setIsLoading(false);
+        }, 1500);
+      } catch (error) {
+        setIsLoading(false);
+        setError(error.response?.data.message);
+      }
+    };
+  
+    if (redirectToReferrer) {
+      return <Redirect to={state?.from || "/"} />;
+    }
+    if (isLoggedIn) {
+      return <Redirect to={state?.from || "/"} />;
+    }
     return (
-        <Layout title="Login">
+      <Layout title="Login">
       <div className="flex items-center justify-center m-auto mt-20">
         <form
           className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 flex flex-col w-full md:w-1/2"
@@ -85,7 +133,8 @@ const Login = () => {
         </form>
       </div>
     </Layout>
-    )
-}
-
-export default Login;
+  );
+            };
+     
+  
+  export default Login;

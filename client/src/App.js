@@ -18,9 +18,6 @@ const App = () => (
     <Gallery />
     <FindUs />
     <Footer />
-    <Route path="/login">
-      <Login />
-    </Route>
   </div>
 );
 
